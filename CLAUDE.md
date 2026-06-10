@@ -19,14 +19,14 @@ Requires Go 1.26+.
 
 ```
 imap-cleaner [flags]
-  -host      IMAP server hostname     (env: IMAP_HOST)
-  -port      IMAP server port         (env: IMAP_PORT, default 993)
-  -user      IMAP username            (env: IMAP_USER)
-  -password  IMAP password            (env: IMAP_PASSWORD)
-  -folder    Mailbox folder (required)
-  -days      Delete emails older than N days
-  -before    Delete emails before YYYY-MM-DD
-  -dry-run   Print count without deleting
+  -host      IMAP server hostname              (env: IMAP_HOST)
+  -port      IMAP server port                  (env: IMAP_PORT, default 993)
+  -user      IMAP username                     (env: IMAP_USER)
+  -password  IMAP password                     (env: IMAP_PASSWORD)
+  -folders   Comma-separated folders (required)(env: IMAP_FOLDERS)
+  -days      Delete emails older than N days   (env: IMAP_DAYS)
+  -before    Delete emails before YYYY-MM-DD   (env: IMAP_BEFORE)
+  -dry-run   Print count without deleting      (env: IMAP_DRY_RUN)
 ```
 
 At least one of `-days` or `-before` is required. Both can be combined (the later cutoff date applies).
@@ -35,6 +35,6 @@ At least one of `-days` or `-before` is required. Both can be combined (the late
 
 Flat layout — all Go files at repo root:
 - `main.go` — flag parsing, env var fallback, validation, cutoff calculation
-- `imap.go` — `Config` type and `DeleteOldEmails(cfg Config) (int, error)`
+- `imap.go` — `Config` type and `DeleteOldEmails(cfg Config) (map[string]int, error)`
 
 Dependencies: `github.com/emersion/go-imap` v1 (TLS IMAP client).
