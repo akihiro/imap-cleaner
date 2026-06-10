@@ -1,12 +1,11 @@
 package main
 
 import (
-	"crypto/tls"
 	"fmt"
 	"time"
 
-	"github.com/emersion/go-imap"
-	"github.com/emersion/go-imap/client"
+	imap "github.com/emersion/go-imap/v2"
+	"github.com/emersion/go-imap/v2/imapclient"
 )
 
 // Config holds connection and operation parameters.
@@ -21,29 +20,27 @@ type Config struct {
 // Returns the number of messages affected.
 func DeleteOldEmails(cfg Config) (int, error) {
 	addr := fmt.Sprintf("%s:%s", cfg.Host, cfg.Port)
-	tlsCfg := &tls.Config{ServerName: cfg.Host}
 
-	c, err := client.DialTLS(addr, tlsCfg)
+	c, err := imapclient.DialTLS(addr, nil)
 	if err != nil {
 		return 0, fmt.Errorf("connect: %w", err)
 	}
-	defer c.Logout()
+	defer c.Close()
 
-	if err := c.Login(cfg.User, cfg.Password); err != nil {
+	if err := c.Login(cfg.User, cfg.Password).Wait(); err != nil {
 		return 0, fmt.Errorf("login: %w", err)
 	}
 
-	if _, err := c.Select(cfg.Folder, false); err != nil {
+	if _, err := c.Select(cfg.Folder, nil).Wait(); err != nil {
 		return 0, fmt.Errorf("select folder %q: %w", cfg.Folder, err)
 	}
 
-	criteria := imap.NewSearchCriteria()
-	criteria.Before = cfg.Before
-
-	uids, err := c.Search(criteria)
+	data, err := c.UIDSearch(&imap.SearchCriteria{Before: cfg.Before}, nil).Wait()
 	if err != nil {
 		return 0, fmt.Errorf("search: %w", err)
 	}
+
+	uids := data.AllUIDs()
 	if len(uids) == 0 {
 		return 0, nil
 	}
@@ -52,15 +49,17 @@ func DeleteOldEmails(cfg Config) (int, error) {
 		return len(uids), nil
 	}
 
-	seqset := new(imap.SeqSet)
-	seqset.AddNum(uids...)
-
-	flags := []interface{}{imap.DeletedFlag}
-	if err := c.Store(seqset, "+FLAGS.SILENT", flags, nil); err != nil {
+	uidSet := imap.UIDSetNum(uids...)
+	storeCmd := c.Store(uidSet, &imap.StoreFlags{
+		Op:     imap.StoreFlagsAdd,
+		Silent: true,
+		Flags:  []imap.Flag{imap.FlagDeleted},
+	}, nil)
+	if err := storeCmd.Close(); err != nil {
 		return 0, fmt.Errorf("mark deleted: %w", err)
 	}
 
-	if err := c.Expunge(nil); err != nil {
+	if _, err := c.Expunge().Collect(); err != nil {
 		return 0, fmt.Errorf("expunge: %w", err)
 	}
 
