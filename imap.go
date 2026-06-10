@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -18,14 +19,16 @@ type Config struct {
 // DeleteOldEmails connects to the IMAP server, searches for messages before
 // cfg.Before in cfg.Folder, and deletes them unless DryRun is set.
 // Returns the number of messages affected.
-func DeleteOldEmails(cfg Config) (int, error) {
+func DeleteOldEmails(cfg Config) (num int, err error) {
 	addr := fmt.Sprintf("%s:%s", cfg.Host, cfg.Port)
 
 	c, err := imapclient.DialTLS(addr, nil)
 	if err != nil {
 		return 0, fmt.Errorf("connect: %w", err)
 	}
-	defer c.Close()
+	defer func() {
+		err = errors.Join(err, c.Close())
+	}()
 
 	if err := c.Login(cfg.User, cfg.Password).Wait(); err != nil {
 		return 0, fmt.Errorf("login: %w", err)
