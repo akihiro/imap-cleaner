@@ -1,0 +1,11 @@
+---
+version: 1
+env:
+  - CGO_ENABLED=0
+  - GOAMD64=v3
+flags:
+  - -trimpath
+  - -buildmode=pie
+goos: linux
+goarch: amd64
+binary: binary-{{ .Os }}-{{ .Arch }}
