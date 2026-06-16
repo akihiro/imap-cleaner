@@ -41,16 +41,33 @@ func envOrBool(flagVal bool, envKey string) bool {
 
 func main() {
 	var (
-		host     = flag.String("host", "", "IMAP server hostname (env: IMAP_HOST)")
-		port     = flag.String("port", "", "IMAP server port, default 993 (env: IMAP_PORT)")
-		user     = flag.String("user", "", "IMAP username (env: IMAP_USER)")
-		password = flag.String("password", "", "IMAP password (env: IMAP_PASSWORD)")
-		days     = flag.Int("days", 0, "delete emails older than N days (env: IMAP_DAYS)")
-		before   = flag.String("before", "", "delete emails before this date YYYY-MM-DD (env: IMAP_BEFORE)")
-		dryRun   = flag.Bool("dry-run", false, "print count without deleting (env: IMAP_DRY_RUN)")
-		folders  = flag.String("folders", "", "comma-separated list of mailbox folders to clean (env: IMAP_FOLDERS, required)")
+		host         = flag.String("host", "", "IMAP server hostname (env: IMAP_HOST)")
+		port         = flag.String("port", "", "IMAP server port, default 993 (env: IMAP_PORT)")
+		user         = flag.String("user", "", "IMAP username (env: IMAP_USER)")
+		password     = flag.String("password", "", "IMAP password (env: IMAP_PASSWORD)")
+		passwordFile = flag.String("password-file", "", "path to file containing IMAP password (env: IMAP_PASSWORD_FILE)")
+		days         = flag.Int("days", 0, "delete emails older than N days (env: IMAP_DAYS)")
+		before       = flag.String("before", "", "delete emails before this date YYYY-MM-DD (env: IMAP_BEFORE)")
+		dryRun       = flag.Bool("dry-run", false, "print count without deleting (env: IMAP_DRY_RUN)")
+		folders      = flag.String("folders", "", "comma-separated list of mailbox folders to clean (env: IMAP_FOLDERS, required)")
 	)
 	flag.Parse()
+
+	passwordVal := envOr(*password, "IMAP_PASSWORD")
+	passwordFileVal := envOr(*passwordFile, "IMAP_PASSWORD_FILE")
+
+	if passwordVal != "" && passwordFileVal != "" {
+		fmt.Fprintln(os.Stderr, "error: --password and --password-file are mutually exclusive (IMAP_PASSWORD and IMAP_PASSWORD_FILE cannot both be set)")
+		os.Exit(1)
+	}
+	if passwordFileVal != "" {
+		data, err := os.ReadFile(passwordFileVal)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: cannot read password file %q: %v\n", passwordFileVal, err)
+			os.Exit(1)
+		}
+		passwordVal = strings.TrimRight(string(data), "\r\n")
+	}
 
 	daysVal := envOrInt(*days, "IMAP_DAYS")
 	beforeVal := envOr(*before, "IMAP_BEFORE")
@@ -59,7 +76,7 @@ func main() {
 		Host:     envOr(*host, "IMAP_HOST"),
 		Port:     envOr(*port, "IMAP_PORT"),
 		User:     envOr(*user, "IMAP_USER"),
-		Password: envOr(*password, "IMAP_PASSWORD"),
+		Password: passwordVal,
 		Folders:  strings.Split(foldersVal, ","),
 		DryRun:   envOrBool(*dryRun, "IMAP_DRY_RUN"),
 	}
@@ -68,7 +85,7 @@ func main() {
 	}
 
 	if cfg.Host == "" || cfg.User == "" || cfg.Password == "" {
-		fmt.Fprintln(os.Stderr, "error: --host, --user, and --password are required (or set IMAP_HOST / IMAP_USER / IMAP_PASSWORD)")
+		fmt.Fprintln(os.Stderr, "error: --host, --user, and --password (or --password-file) are required (or set IMAP_HOST / IMAP_USER / IMAP_PASSWORD / IMAP_PASSWORD_FILE)")
 		os.Exit(1)
 	}
 	if foldersVal == "" {
