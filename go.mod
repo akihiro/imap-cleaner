@@ -2,7 +2,7 @@ module github.com/akihiro/imap-cleaner
 
 go 1.26.4
 
-require github.com/emersion/go-imap/v2 v2.0.0-beta.8
+require github.com/emersion/go-imap/v2 v2.0.0-beta.9
 
 require (
 	github.com/emersion/go-message v0.18.2 // indirect
